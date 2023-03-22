@@ -5,7 +5,23 @@ db:
     url: "jdbc:postgresql://10.130.2.38:5432/vfo"
     schema: "vfo_loy"
     username: "vfo_loy"
-
+    password: loy_pass
+    encMasterKey: changeit
+auth:
+  aes:
+    key:
+      salt: changeit
+      
+sgw:
+  trustStore:
+    data: null
+  privateKeyStore:
+    data: null
+    type: JKS
+    password: fVidTL5icA
+    alias: testing_loy_zds
+    keyPassword: fVidTL5icA
+    
 image:
   pullPolicy: Always
   forceRecreatePods: true
@@ -47,12 +63,16 @@ elastic:
     copyContainer:
       pullPolicy: Always
     enabled: true
+    secretToken: Jf1XVefnIPdd5Ef0
     environment: 'dev'
     serverUrl: http://10.130.2.61:8200
     extraConfig: |
       enable_experimental_instrumentation=true
 
 fluentd:
+  match:
+    elasticsearch:
+      password: ygtxfPgCmGwVQsEh
   enabled: true
   tagPrefix: dev-
   pullPolicy: Always
