@@ -1,0 +1,19 @@
+# Source: vfo-zds-loy/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vfo-zds-loy
+  labels:
+    helm.sh/chart: vfo-zds-loy-1.1.0
+    app.kubernetes.io/name: vfo-zds-loy
+    app.kubernetes.io/instance: vfo-zds-loy
+    app.kubernetes.io/version: "1.1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    app.kubernetes.io/name: vfo-zds-loy
+    app.kubernetes.io/instance: vfo-zds-loy
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

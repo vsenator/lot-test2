@@ -1,0 +1,26 @@
+# Source: vfo-zds-loy/templates/route.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: vfo-zds-loy
+  labels:
+    helm.sh/chart: vfo-zds-loy-1.1.0
+    app.kubernetes.io/name: vfo-zds-loy
+    app.kubernetes.io/instance: vfo-zds-loy
+    app.kubernetes.io/version: "1.1.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/rewrite-target: /
+    haproxy.router.openshift.io/timeout: 150s
+    kubernetes.io/tls-acme: "true"
+spec:
+  host: loy.apps.rhocp.non-prod-cloud1.itcloud.local.vodafone.om
+  path: /
+  to:
+    kind: Service
+    name: vfo-zds-loy
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

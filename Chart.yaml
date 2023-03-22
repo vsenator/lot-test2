@@ -1,0 +1,16 @@
+apiVersion: v2
+name: vfo-zds-loy
+description: VFO digital server Loyalty
+type: application
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 1.1.1-SNAPSHOT
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application.
+appVersion: 1.1.1-SNAPSHOT
+dependencies:
+  - name: zen-helm-chart-library
+    version: 2.15.1
+    repository: https://nexus.zentity.com/repository/helm/
+    # for development of this chart comment the above and use direct file URL, for example:
+    #repository: file://../vfo-helm-chart-library/library

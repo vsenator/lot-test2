@@ -1,0 +1,83 @@
+replicaCount: 1
+
+db:
+  zds:
+    url: "jdbc:postgresql://10.130.2.38:5432/vfo"
+    schema: "vfo_loy"
+    username: "vfo_loy"
+
+image:
+  pullPolicy: Always
+  forceRecreatePods: true
+
+deployment:
+  useDeployment: false
+  useDeploymentConfig: true
+
+spring:
+  profile: devel
+  
+url:
+  # base name of the war without version
+  externalPath: ''
+  base: 'https://mva-dev.apps.test.okd.zentity.com/'
+  hostname: 'mva-dev.apps.test.okd.zentity.com'
+
+apigw:
+  baseUrl: 'http://vfo-mock-apigw.vfo-devel-mock.svc.cluster.local'
+
+sgw:
+  baseUrl: 'http://vfo-zds-sgw-isgw.vfo-devel-sgw.svc.cluster.local'
+  issuer: 'https://isgw-dev.apps.test.okd.zentity.com'
+  jwks:
+    trustStore:
+      url: classpath:/com/zentity/gw/vfo/shared/truststore-jwks.devel.jks
+    
+core:
+  url:
+    base:
+      full: 'https://loy-dev.apps.test.okd.zentity.com/'
+
+# ==================
+# = LOG MANAGEMENT =
+# ==================
+
+elastic:
+  apm:
+    copyContainer:
+      pullPolicy: Always
+    enabled: true
+    environment: 'dev'
+    serverUrl: http://10.130.2.61:8200
+    extraConfig: |
+      enable_experimental_instrumentation=true
+
+fluentd:
+  enabled: true
+  tagPrefix: dev-
+  pullPolicy: Always
+
+  filters:
+    # add the X-Request-ID, X-Correlation-ID and other X-headers.
+    applogs-trace-ids:
+      tag: "*.applogs"
+      config: |
+        @type zen_modifier
+        insert {
+          "X-Request-ID": "mdc.requestId",
+          "X-Correlation-ID": "mdc.traceId",
+          "X-Application-ID": "mdc.callerApplicationId",
+          "SGW_ID": "mdc.userId"
+        }
+
+  match:
+    elasticsearch:
+      enabled: true
+      host: 10.130.2.61
+      port: 9200
+      user: fluentd_system
+
+jolokiaAgent:
+  copyContainer:
+    pullPolicy: Always
+  enabled: true

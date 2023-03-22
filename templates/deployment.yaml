@@ -1,0 +1,280 @@
+# Source: vfo-zds-loy/templates/deployment.yaml
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  name: vfo-zds-loy
+  labels:
+    helm.sh/chart: vfo-zds-loy-1.1.0
+    app.kubernetes.io/name: vfo-zds-loy
+    app.kubernetes.io/instance: vfo-zds-loy
+    app.kubernetes.io/version: "1.1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  revisionHistoryLimit: 3
+  test: false
+  replicas: 1
+  selector:
+    app.kubernetes.io/name: vfo-zds-loy
+    app.kubernetes.io/instance: vfo-zds-loy
+  template:
+    metadata:
+      annotations:
+        checksum/secrets: 75ee592e61ac471fb1bfdc9031dfe083e61144422d9e19c506cc976c33d40a3e
+        checksum/configmap: 8b5d22ca5bd3b9e8ea6a83bb7463e0858766c62e9e1b21fa15a07f4be271bd4d
+      labels:
+        app.kubernetes.io/name: vfo-zds-loy
+        app.kubernetes.io/instance: vfo-zds-loy
+    spec:
+      imagePullSecrets:
+        - name: zentity-docker-config-json-loy
+      serviceAccountName: vfo-zds-loy
+      securityContext:
+        {}
+      initContainers:
+
+        # Init container that copies Elastic APM Agent jar file to pod-shared folder
+        - name: copy-elastic-apm-agent
+          image: docker.zentity.com/com.zentity.k8s/init-elastic-apm-agent:2.15.0
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c', 'cp -r /opt/elastic-apm-agent /mnt/pod-shared']
+          volumeMounts:
+            - name: pod-shared
+              mountPath: /mnt/pod-shared
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 200m
+              memory: 64Mi
+
+          # Jolokia init container copies the jolokia agent jar file to pod-shared folder
+        - name: copy-jolokia-agent
+          image: docker.zentity.com/com.zentity.k8s/init-jolokia-agent:2.15.0
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c', 'cp -r /opt/jolokia-agent /mnt/pod-shared']
+          volumeMounts:
+            - name: pod-shared
+              mountPath: /mnt/pod-shared
+
+      containers:
+        - name: vfo-zds-loy
+          securityContext:
+            {}
+          image: docker.zentity.com/com.zentity.gw.vfo/loy:1.1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KUBERNETES_CONTAINER_IMAGE
+              value: docker.zentity.com/com.zentity.gw.vfo/loy:1.1.0
+            - name: KUBERNETES_CONTAINER_NAME
+              value: vfo-zds-loy
+            - name: KUBERNETES_HELM_CHART_NAME
+              value: vfo-zds-loy
+            - name: KUBERNETES_HELM_CHART_VERSION
+              value: 1.1.0
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_NODE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KUBERNETES_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KUBERNETES_POD_ID
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: KUBERNETES_POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: KUBERNETES_POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.serviceAccountName
+            - name: KUBERNETES_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: ELASTIC_APM_CONFIG_FILE
+              value: /etc/zds/config/elasticapm.properties
+            - name: ELASTIC_APM_SECRET_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vfo-zds-loy
+                  key: ELASTIC_APM_SECRET_TOKEN
+            - name: CATALINA_OPTS
+              value: >-
+                -Dspring.profiles.active=devel
+                -Duser.timezone=Asia/Muscat
+                -DCONFIG_DIR=/etc/zds/config
+                -DCONFIG_SECRETS_DIR=/etc/zds/secrets
+                -Dlogback.configurationFile=/etc/zds/config/logback.xml
+                -Djavaagent.elastic.apm=true -javaagent:/mnt/pod-shared/elastic-apm-agent/elastic-apm-agent-1.26.0.jar
+                -javaagent:/mnt/pod-shared/jolokia-agent/jolokia-jvm-1.7.0.jar=config=/etc/zds/config/jolokia-agent.properties
+                -Dtomcat.connector.acceptCount=100 -Dtomcat.connector.connectionTimeout=90000 -Dtomcat.connector.connectionUploadTimeout=300000 -Dtomcat.connector.disableUploadTimeout=false -Dtomcat.connector.maxConnections=8192 -Dtomcat.connector.maxPostSize=2097152 -Dtomcat.connector.maxThreads=400
+                -XX:+UseG1GC -Xmx3g -Xms512m
+            - name: JAVAX_NET_SSL_KEYSTORE_TYPE
+              valueFrom:
+                secretKeyRef:
+                  name: vfo-zds-loy
+                  key: JAVAX_NET_SSL_KEYSTORE_TYPE
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: secrets-volume
+              mountPath: /etc/zds/secrets
+              readOnly: true
+            - name: config-volume
+              mountPath: /etc/zds/config
+              readOnly: true
+            - name: pod-shared
+              mountPath: /mnt/pod-shared
+            - name: tomcatlog
+              mountPath: /usr/local/tomcat/logs
+
+
+
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              httpHeaders:
+                - name: Zen-Application
+                  value: ReadinessProbe
+                - name: Zen-AppVersion
+                  value: self
+                - name: Zen-OS
+                  value: WEB
+              path: /core/api/public/anonymous/ping/v1
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            successThreshold: 1
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              httpHeaders:
+                - name: Zen-Application
+                  value: ReadinessProbe
+                - name: Zen-AppVersion
+                  value: self
+                - name: Zen-OS
+                  value: WEB
+              path: /core/api/public/anonymous/ping/v1
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+
+
+        - name: fluentd
+          image: docker.zentity.com/com.zentity.k8s/fluentd:2.15.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: FLUENTD_TAG_PREFIX
+              value: sit-
+            - name: FLUENTD_TAG_COMPONENT_NAME
+              value: zds-loy
+
+            - name: KUBERNETES_CONTAINER_IMAGE
+              value: docker.zentity.com/com.zentity.gw.vfo/loy:1.1.0
+            - name: KUBERNETES_CONTAINER_NAME
+              value: vfo-zds-loy
+            - name: KUBERNETES_HELM_CHART_NAME
+              value: vfo-zds-loy
+            - name: KUBERNETES_HELM_CHART_VERSION
+              value: 1.1.0
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_NODE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KUBERNETES_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KUBERNETES_POD_ID
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: KUBERNETES_POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: KUBERNETES_POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.serviceAccountName
+            - name: KUBERNETES_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: FLUENTD_ELASTICSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vfo-zds-loy
+                  key: FLUENTD_ELASTICSEARCH_PASSWORD
+
+          volumeMounts:
+            - name: config-volume
+              mountPath: /fluentd/etc
+              readOnly: true
+            - name: secrets-volume
+              mountPath: /fluentd/secrets
+              readOnly: true
+            - name: pod-shared
+              mountPath: /mnt/pod-shared
+            - name: tomcatlog
+              mountPath: /usr/local/tomcat/logs
+
+          resources:
+            {}
+      volumes:
+        - name: secrets-volume
+          secret:
+            secretName: vfo-zds-loy
+            defaultMode: 0440
+        - name: config-volume
+          configMap:
+            name: vfo-zds-loy
+            defaultMode: 0440
+        - name: pod-shared
+          emptyDir: {}
+        - name: tomcatlog
+          emptyDir: {}
+      hostAliases:
+        - hostnames:
+            - dc01.internal.vodafone.om
+          ip: 10.14.3.185
+        - hostnames:
+            - dc02.internal.vodafone.om
+          ip: 10.14.3.175
+        - hostnames:
+            - corpp-sit.ze.itcloud.vodafone.om
+          ip: 10.14.144.204

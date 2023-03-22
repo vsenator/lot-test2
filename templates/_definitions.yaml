@@ -1,0 +1,224 @@
+{{/* vim: set filetype=mustache: */}}
+
+{{/*
+Generic component definitions
+*/}}
+
+{{- define "get-component" }}component{{ end }}
+
+{{- define "zen-helm-chart-library-version" -}}2.14.3{{ end }}
+
+{{- define "docker-registry" }}{{ .Values.dockerRegistry | default "docker.zentity.com" }}{{ end }}
+
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "component.name.default" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "component.name" -}}
+{{- include "component.name.default" . }}
+{{- end }}
+
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "component.fullname.default" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+
+{{- define "component.fullname" -}}
+{{- include "component.fullname.default" . }}
+{{- end }}
+
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "component.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+
+{{/*
+Common labels
+*/}}
+{{- define "component.labels" -}}
+helm.sh/chart: {{ include "component.chart" . }}
+{{ include "component.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+
+{{/*
+Selector labels
+*/}}
+{{- define "component.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "component.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "component.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "component.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+
+{{- define "component.url.hostname" -}}
+{{ required "url.hostname is not defined" .Values.url.hostname }}
+{{- end }}
+
+
+{{- define "component.url.externalPath" -}}
+{{ .Values.url.externalPath }}
+{{- end }}
+
+
+{{- define "component.configMapName" -}}
+{{ default (include "component.fullname" . ) .Values.existingConfigMapName }}
+{{- end }}
+
+
+{{- define "component.secretName" -}}
+{{ default (include "component.fullname" . ) .Values.existingSecretName }}
+{{- end }}
+
+
+{{/*
+Macro, expands Tomcat commandline properties
+*/}}
+{{- define "component.tomcatConnectorProperties" }}
+{{- range $key, $value := .Values.tomcat.connector }}-Dtomcat.connector.{{ $key }}={{ $value }} {{ end -}}
+{{- end }}
+
+{{- define "deployment.volume.mountPath.config" -}}
+{{- $componentType := include "get-component-category" . }}
+{{- $configMountPathTpl := printf "deployment.volume.mountPath.config.%s" $componentType -}}
+{{ include $configMountPathTpl . }}
+{{- end }}
+
+
+{{/*
+ default environment
+*/}}
+{{- define "deployment.spec.template.spec.containers.env.component.tpl" }}
+{{- end }}
+
+{{- define "deployment.volume.mountPath.secrets" -}}
+{{- $componentType := include "get-component-category" . }}
+{{- $secretsMountPathTpl := printf "deployment.volume.mountPath.secrets.%s" $componentType -}}
+{{ include $secretsMountPathTpl . }}
+{{- end }}
+
+{{- define "deployment.volume.mountPath.logs" -}}
+{{- $componentType := include "get-component-category" . }}
+{{- $secretsMountPathTpl := printf "deployment.volume.mountPath.logs.%s" $componentType -}}
+{{ include $secretsMountPathTpl . }}
+{{- end }}
+
+
+{{/*
+macro, pod-shared folder path
+*/}}
+{{- define "deployment.volume.mountPath.podShared" -}}
+  /mnt/pod-shared
+{{- end }}
+
+
+{{/*
+macro, Tomcat logs folder path
+*/}}
+{{- define "deployment.volume.mountPath.tomcatLogs" -}}
+  /usr/local/tomcat/logs
+{{- end }}
+
+
+{{/*
+macro, nginx JSON logs folder path
+*/}}
+{{- define "deployment.volume.mountPath.nginxJsonLogs" -}}
+  /var/log/nginx/json
+{{- end }}
+
+
+{{/*
+macro, main container name
+*/}}
+{{- define "deployment.spec.revisionHistoryLimit" -}}
+{{ .Values.deployment.revisionHistoryLimit | default 3 }}
+{{- end }}
+
+
+{{/*
+macro, main container name
+*/}}
+{{- define "deployment.container.name" -}}
+{{ .Chart.Name }}
+{{- end }}
+
+
+{{/*
+macro, image name of the main container
+*/}}
+{{- define "deployment.container.image" -}}
+{{ include "docker-registry" . }}/{{ printf "%s:%s" .Values.image.name (.Values.image.tag | default .Chart.AppVersion) }}
+{{- end }}
+
+{{/*
+macro, is pod shared folder enabled?
+*/}}
+{{- define "deployment.podShared.enabled" -}}
+{{ or (include "elastic-apm-agent-enabled" .) (include "jolokia-agent-enabled" .) }}
+{{- end }}
+
+
+{{/*
+macro, is autoscaling enabled
+*/}}
+{{- define "autoscaling.enabled" -}}
+{{- if default .Values.autoscaling.enabled false -}}enabled{{- end -}}
+{{- end }}
+
+{{/*
+macro, default java options
+*/}}
+{{- define "javaopts.component.tpl" -}}
+{{- end }}
+
+
+{{/*
+macro, loggin property
+*/}}
+{{- define "logging.config.property" -}}
+  logback.configurationFile
+{{- end }}
+
+
+{{- define "deployment.spec.template.spec.containers.env.SPRING_CONFIG_LOCATION.tpl" -}}
+{{- $componentType := include "get-component-category" . }}
+{{- $template := printf "deployment.spec.template.spec.containers.env.SPRING_CONFIG_LOCATION.%s.tpl" $componentType -}}
+{{- include $template . }}
+{{- end }}

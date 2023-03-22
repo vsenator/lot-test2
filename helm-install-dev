@@ -1,0 +1,40 @@
+#!/bin/bash
+
+set -e
+
+DIR="$( cd "$( dirname "$0" )" && pwd )"
+
+cd $DIR
+
+# make sure you are logged in oc
+# to login, go to https://console-openshift-console.apps.test.okd.zentity.com login with gmail
+# click top right on your name -> "Copy Login Command"
+# paste and execute copied command
+
+# decrypt values
+mkdir -p dev-secrets/.decrypted
+
+secret_files=()
+
+# add files here
+secret_files+=(sgw-keystore.jks)
+
+for f in "${secret_files[@]}";
+do
+  src="dev-secrets/$f.encrypted.json"
+  dst="dev-secrets/.decrypted/$f"
+  if [ ! -f $dst ];
+  then
+    echo -n "Secret file $f does not exist. Decrypting... "
+    sops -d --extract '["data"]' "$src" > "$dst"
+    echo "$dst"
+  fi
+done
+
+helm dependency update
+helm upgrade --install \
+    --values values.dev.yaml \
+    --values secrets://values.sec.dev.yaml \
+    --set-file 'sgw.privateKeyStore.data=dev-secrets/.decrypted/sgw-keystore.jks' \
+    --namespace vfo-devel-loy \
+    "$@" vfo-zds-loy .

@@ -1,0 +1,695 @@
+# ============================
+# = DEPLOYMENT CONFIGURATION =
+# ============================
+
+# Values that describe basic settings how the component is deployed
+# More specific and detailed tweaks are in the PERFORMANCE CONFIGURATION section down below
+
+# -- count of pod instances
+replicaCount: 2
+
+image:
+  # -- docker image name
+  name: com.zentity.gw.vfo/loy
+  # -- docker image tag. It shouldn't be SNAPSHOT outside devel environment
+  tag: ""
+  # -- pull policy: IfNotPresent, Always, Never
+  pullPolicy: IfNotPresent
+  # -- force recreate pods
+  forceRecreatePods: true
+
+# -- Use names pull secrets
+# @default -- see [values.yaml](values.yaml)
+imagePullSecrets:
+  # -- name of existing secrets of type kubernetes.io/dockerconfigjson. It is used for authentication against Docker image registry
+  - name: "nexus"
+
+# -- values specific to the "Deployment" Kubernetes object
+# @default -- see [values.yaml](values.yaml)
+deployment:
+  # -- use Kubernetes Deployment
+  useDeployment: true
+
+  # -- use Openshift DeploymentConfig
+  useDeploymentConfig: false
+
+  # -- in OpenShift the container port must be > 1024
+  containerPort: 8080
+
+  # -- definition of liveness probe
+  # see: [https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+  # @default -- see [values.yaml](values.yaml)
+  livenessProbe: # mandatory for ZDS components
+    httpGet:
+      port: http
+      path: /core/api/public/anonymous/ping/v1
+      httpHeaders:
+        - name: Zen-Application
+          value: ReadinessProbe
+        - name: Zen-AppVersion
+          value: self
+        - name: Zen-OS
+          value: WEB
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    successThreshold: 1
+    failureThreshold: 3
+
+  # -- definition of readiness probe
+  # see: [https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+  # @default -- see [values.yaml](values.yaml)
+  readinessProbe:
+    httpGet:
+      port: http
+      path: /core/api/public/anonymous/ping/v1
+      httpHeaders:
+        - name: Zen-Application
+          value: ReadinessProbe
+        - name: Zen-AppVersion
+          value: self
+        - name: Zen-OS
+          value: WEB
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    failureThreshold: 3
+
+  # -- definition of startup probe
+  startupProbe: {} # startupProbe is optional
+  #    httpGet:
+  #      port: http
+  #      path: /core/api/public/anonymous/ping/v1
+  #    initialDelaySeconds: 5
+  #    periodSeconds: 2
+  #    successThreshold: 1
+  #    failureThreshold: 10
+
+  # -- deployment strategy configuration
+  # see more [https://docs.openshift.com/container-platform/4.9/applications/deployments/deployment-strategies.html](https://docs.openshift.com/container-platform/4.9/applications/deployments/deployment-strategies.html)
+  strategy: {}
+  #    type: Rolling
+  #    rollingParams:
+  #      updatePeriodSeconds: 1
+  #      intervalSeconds: 1
+  #      timeoutSeconds: 600
+  #      maxUnavailable: 25%
+  #      maxSurge: 25%
+  #    resources: {}
+  #    activeDeadlineSeconds: 21600
+
+  # -- deployment triggers
+  # see more [https://docs.openshift.com/container-platform/4.9/applications/deployments/what-deployments-are.html](https://docs.openshift.com/container-platform/4.9/applications/deployments/what-deployments-are.html)
+  triggers: []
+  #    - type: ConfigChange
+
+# -- arbitrary k8s secrets
+secrets: {}
+
+# =============================
+# = APPLICATION CONFIGURATION =
+# =============================
+
+# -- database configuration
+# @default -- see [values.yaml](values.yaml)
+db:
+  zds:
+    # --JDBC connection URL
+    url:
+    # -- DB schema
+    schema:
+    # -- DB user
+    username:
+    # -- DB password
+    password:
+    # -- master key used for encryption of sensitive information stored in DB [secret, key RELEASE_NAME.properties]
+    encMasterKey: "changeit"
+    # -- Maximum allowed active DB connections
+    maxActiveConnections: 50
+
+zipkin:
+  # -- Zipkin server URL - not used at the moment
+  url: '#NULL'
+
+# -- Swagger / Springfox UI
+# @default -- see [values.yaml](values.yaml)
+swagger:
+  # -- user name for accessing of Swagger API documentation. If not set then Swagger is disabled
+  username: "api"
+  # -- password for accessing of Swagger API documentation.
+  password: "api!123"
+
+spring:
+  # -- Spring profile(s) to use. ZDS contains preconfigured parameters for some environments. Available values: prod, testing, acc, int, devel
+  profile: devel
+
+extraCfg:
+  zds:
+    # -- extra configuration parameters which are pass through to configmap
+    # For available parameters see documentations:
+    #   - ZDS: to be added later
+    #   - documentation of technological modules: [https://confluence.zentity.com/display/ZENGW/Technological+modules](https://confluence.zentity.com/display/ZENGW/Technological+modules)
+    config: ''
+    # -- extra sensitive configuration parameters which are pass through to secret
+    secrets: ''
+    # -- extra config categorized by topic
+    topicConfig: {}
+    # -- extra secret configuration categorized by topic
+    topicSecrets: {}
+    # -- DEPRECATED: replaced by topicConfig extra config per deployment flavor
+    flavorConfig: {}
+    # -- DEPRECATED: replaced by topicSecrets, extra secret configuration per deployment flavor
+    flavorSecrets: {}
+  # -- Tomcat startup parameters
+  zdsCatalinaOpts: '-XX:+UseG1GC -Xmx1g -Xms512m'
+
+
+# -- SGW client configuration
+# @default -- see [values.yaml](values.yaml)
+sgw:
+  # -- "base" URL of SGW
+  # It is "internal" cluster URL: http(s)://SGW_SERVICE_NAME if SGW is in same namespace as ZDS
+  # or http(s)://SGW_SERVICE_NAME.SGW_NAME_SPACE.svc.cluster.local if SGW is in other namespace
+  baseUrl:
+  # -- this zds's client id
+  # TODO: change to LOY_ZDS if SGW is ready
+  clientId: 'LOY_ZDS'
+  # -- JWT issuer used for validation of JWT
+  issuer:
+  # -- client truststore
+  # @default -- see [values.yaml](values.yaml)
+  trustStore:
+    # base64 encoded content of custom trust store (JKS) which is used for TLS connection to SGW [secret, key sgw-trustore]
+    data:
+
+  # -- JWKS client
+  # @default -- see [values.yaml](values.yaml)
+  jwks:
+    # -- JWKS client truststore
+    # @default -- see [values.yaml](values.yaml)
+    trustStore:
+      url:
+      type: 'JKS'
+
+  # -- private key store
+  # @default -- see [values.yaml](values.yaml)
+  privateKeyStore:
+    # base64 encoded content of key store which is used for authentication for issuing of JWT [secret, key sgw-private-keystore]
+    data:
+    # type of key store: JKS or PKCS12
+    type:
+    # passphrase of ket store
+    password:
+    # alias of key
+    alias:
+    # passphrase of key
+    keyPassword:
+
+# -- APIGW client configuration
+# @default -- see [values.yaml](values.yaml)
+apigw:
+  # -- "base" URL of API GW
+  baseUrl:
+  # -- client truststore
+  # @default -- see [values.yaml](values.yaml)
+  trustStore:
+    # base64 encoded content of custom JKS trust store which is used for TLS connection to APIGW
+    data:
+    
+# -- KAFKA configuration
+kafka:
+  bootstrapServers:
+  clientId: zentity
+  keyStore:
+    data:
+    password:
+    keyPassword:
+  trustStore:
+    data:
+    password:
+  topic:
+    gamification:
+
+auth:
+  aes:
+    key:
+      # -- AES Key Salt
+      salt: "changeit"
+
+zds:
+  # -- used for -Duser.timezone of Tomcat
+  timeZone: 'Europe/Prague'
+  sys2sys:
+    apigw:
+      # -- shared.vfoApplicationId property
+      applicationId: 'CHANNELS_ZDS'
+  baseUrl:
+  trustStore:
+    # base64 encoded content of custom JKS trust store which is used for TLS connection to ZDS
+    data:
+  vodafone:
+    feature:
+      ramadanGamification:
+        enabled:
+        startDate:
+        endDate:
+
+
+core:
+  url:
+    base:
+      # -- external base url for LOY ZDS, core.url.base.full property
+      full:
+
+headers:
+  mandatory:
+    exclusion:
+      # -- Exclude headers from logging
+      # @default -- see [values.yaml](values.yaml)
+      pattern: ^(?:(?:/\\w+)?/api/(?:stats|debug)|/core/api/\\w+/anonymous/ping/|/media/api/public/anonymous/files/\\w+)
+
+# -- configuration related to Tomcat application server
+# see [https://tomcat.apache.org/tomcat-9.0-doc/config/http.html](https://tomcat.apache.org/tomcat-9.0-doc/config/http.html)
+# @default -- see [values.yaml](values.yaml)
+tomcat:
+  connector:
+    # -- The maximum queue length for incoming connection requests when all possible request processing threads are in use.
+    # Any requests received when the queue is full will be refused. The default value is 100.
+    acceptCount: 100
+    # -- The number of milliseconds the connector will wait, after accepting a connection, for the request URI line to be presented
+    connectionTimeout: 90000
+    # -- The maximum number of connections that the server will accept and process at any given time.
+    maxConnections: 8192
+    # -- The maximum number of request processing threads to be created by the connector,
+    # which therefore determines the maximum number of simultaneous requests that can be handled.
+    maxThreads: 400
+    # -- The maximum size in bytes of the POST which will be handled by the container FORM URL parameter parsing.
+    # This is in fact integer but the Helm treats this falsely as float resulting in 2.097152e+06
+    maxPostSize: "2097152"
+    # -- This flag allows the servlet container to use a different, usually longer connection timeout during data upload.
+    # If not specified, this attribute is set to true which disables this longer timeout.
+    disableUploadTimeout: false
+    # -- Specifies the timeout, in milliseconds, to use while a data upload is in progress.
+    # This only takes effect if disableUploadTimeout is set to false.
+    connectionUploadTimeout: 300000
+
+# -- set javax.net.ssl.* Java properties to the deployment
+# @default -- see [values.yaml](values.yaml)
+javaxNetSsl:
+  keyStore:
+    type: 'JKS'
+    password:
+    # content of the default java trustStore. If not set then default one is used.
+    # it can be set by helm command line parameter: helm --set-file 'javaNetSsl.keyStore.data=PATH_TO_CUSTOM_KEYSTORE_XML'
+    data:
+
+# ============================
+# = NETWORKING CONFIGURATION =
+# ============================
+
+# -- Describe URL and route
+# @default -- see [values.yaml](values.yaml)
+url:
+  # -- "external" path
+  externalPath: '/'
+  # -- "base" URL of ZDS under which is accessible from outside of cluster
+  base:
+  # -- "external" hostname - must be the same as in url.base
+  hostname:
+  # -- see e.g. https://docs.openshift.com/container-platform/4.7/networking/routes/secured-routes.html
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    haproxy.router.openshift.io/timeout: "150s"
+    haproxy.router.openshift.io/rewrite-target: /
+
+# ==========================
+# = SECURITY CONFIGURATION =
+# ==========================
+
+# -- service account configuration
+# @default -- see [values.yaml](values.yaml)
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# -- pod annotations
+podAnnotations: {}
+
+# -- pod security context
+podSecurityContext: {}
+# fsGroup: 2000
+
+# -- security context
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+# runAsUser: 1000
+
+# =======================================
+# = CLUSTER & PERFORMANCE CONFIGURATION =
+# =======================================
+
+# -- CPU and memory resource settings for the main application
+# see [https://docs.openshift.com/online/pro/dev_guide/compute_resources.html#dev-managed-by-quota](https://docs.openshift.com/online/pro/dev_guide/compute_resources.html#dev-managed-by-quota)
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+#   memory: 128Mi
+
+# -- autoscaling configuration
+# @default -- see [values.yaml](values.yaml)
+autoscaling:
+  # -- enable autoscaling (HPA)
+  enabled: false
+  # -- minimum number of replicas
+  minReplicas: 1
+  # -- maximkum number of replicas
+  maxReplicas: 100
+  # -- if CPU utilization is obove this number the deployment will scale up
+  targetCPUUtilizationPercentage: 80
+  # -- if memory utilization is obove this number the deployment will scale up
+  targetMemoryUtilizationPercentage: 80
+
+# -- node selector
+nodeSelector: {}
+
+# -- tolarations,
+# see more [https://docs.openshift.com/container-platform/4.9/logging/config/cluster-logging-tolerations.html](https://docs.openshift.com/container-platform/4.9/logging/config/cluster-logging-tolerations.html)
+tolerations: []
+
+# -- affinity definitions,
+# see more [https://docs.openshift.com/container-platform/4.9/nodes/scheduling/nodes-scheduler-pod-affinity.html](https://docs.openshift.com/container-platform/4.9/nodes/scheduling/nodes-scheduler-pod-affinity.html)
+# @default -- see [values.yaml](values.yaml)
+affinity: {}
+
+
+# ===============================
+# = LOG & MONITORING MANAGEMENT =
+# ===============================
+
+# -- Elastic APM Java agent configuration
+# see [https://www.elastic.co/guide/en/apm/agent/java/master/config-core.html](https://www.elastic.co/guide/en/apm/agent/java/master/config-core.html)
+# @default -- see [values.yaml](values.yaml)
+elastic:
+  apm:
+    copyContainer:
+      # -- override this if other than default is necessary
+      image:
+      # -- override this if other than default is necessary
+      imageTag:
+      # -- pull policy IfNotPresent, Always, Never
+      pullPolicy: IfNotPresent
+      # -- CPU and memory limits and requests
+      resources: {}
+        # We usually recommend not to specify default resources and to leave this as a conscious
+        # choice for the user. This also increases chances charts run on environments with little
+        # resources, such as Minikube. If you do want to specify resources, uncomment the following
+        # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+        #    limits:
+        #      cpu: 2000m
+        #      memory: 2Gi
+        #    requests:
+        #      cpu: 500m
+      #      memory: 1Gi
+    enabled: false
+    instrument: true
+    environment: "dev"
+    serverUrl: 127.0.0.1
+    verifyServerCert: true
+    serviceName: "zds-loy"
+    secretToken:
+
+    # -- trace details
+    applicationPackages:
+      - com.zentity
+    # -- trace methods
+    # @default -- see [values.yaml](values.yaml)
+    traceMethods:
+    # -- use Elastic Trace parent header
+    useElasticTraceparentHeader: true
+
+    # -- extra APM configuration that goes into elasticapm.properties
+    # see: [https://www.elastic.co/guide/en/apm/agent/java/master/configuration.html](https://www.elastic.co/guide/en/apm/agent/java/master/configuration.html)
+    extraConfig: ''
+
+    # -- Valid options: OFF, ERROR, CRITICAL, WARN, WARNING, INFO, DEBUG, TRACE
+    logLevel: INFO
+    # -- APM agent log file
+    logFile: /usr/local/tomcat/logs/apm-agent.log
+    # -- max log file size
+    logFileSize: 50mb
+    # -- Valid options: PLAIN_TEXT, JSON
+    logFormatFile: PLAIN_TEXT
+
+# -- fluentd sidecar that collects application and access logs from Tomcat
+# @default -- see [values.yaml](values.yaml)
+fluentd:
+  # -- enable elastic search output plugin
+  enabled: false
+  # -- override this if other than default is necessary
+  image:
+  # -- override this if other than default is necessary
+  imageTag:
+  # -- pull policy IfNotPresent, Always, Never
+  pullPolicy: IfNotPresent
+  # -- prefix tag
+  tagPrefix: ''
+  # -- component identification - part of index name
+  tagComponentName: 'zds-loy'
+
+  # -- sources configuration are pieces of fluentd configuration
+  # and in will appears inside <source> tags
+  # @default -- see [values.yaml](values.yaml)
+  sources:
+    accesslogs:
+      enabled: true
+      config: |-
+        @type tail
+        format apache2
+        tag "#{ENV['FLUENTD_TAG_PREFIX']}#{ENV['FLUENTD_TAG_COMPONENT_NAME']}.accesslogs"
+        path /usr/local/tomcat/logs/localhost_access_log.*.txt
+        pos_file /usr/local/tomcat/logs/localhost_access_log.pos
+        follow_inodes true
+        read_from_head true
+    applogs:
+      enabled: true
+      config: |-
+        @type tail
+        format json # one JSON per line
+        tag "#{ENV['FLUENTD_TAG_PREFIX']}#{ENV['FLUENTD_TAG_COMPONENT_NAME']}.applogs"
+        path /usr/local/tomcat/logs/loy-app.json.log
+        pos_file /usr/local/tomcat/logs/loy-app.json.log.pos
+        follow_inodes true
+        read_from_head true
+
+    jmx:
+      enabled: true
+      config: |-
+        @type zen_jolokia
+        tag "#{ENV['FLUENTD_TAG_PREFIX']}#{ENV['FLUENTD_TAG_COMPONENT_NAME']}.jmx"
+        url "http://#{ENV['KUBERNETES_POD_IP']}:7777/jolokia"
+        interval 5
+        jolokia_config /fluentd/etc/zen-jolokia.yaml
+
+  # -- filters configuration, this will appears inside <filter> tags
+  # see: [https://docs.fluentd.org/configuration](https://docs.fluentd.org/configuration)
+  filters: {}
+
+  # -- Output plugins configuration
+  # @default -- see [values.yaml](values.yaml)
+  match:
+    # -- ElasticSearch output plugin configuration
+    # @default -- see [values.yaml](values.yaml)
+    elasticsearch:
+      # -- enable elastic search output plugin
+      enabled: false
+      # -- fluentd plugin type
+      type: elasticsearch
+      # -- match tags
+      tags: [ '**' ]
+      # -- scheme http or https
+      scheme: http
+      # -- host
+      host: 127.0.0.1
+      # -- port
+      port: 9200
+      # -- username
+      user:
+      # -- password
+      password:
+      # -- reconnect on error
+      reconnectOnError: true
+      # -- also log ES400 reasons
+      logEs400Reason: true
+      tls:
+        # -- enable TLS
+        enabled: false
+      # -- elasticsearch plugin buffer configuration
+      # @default -- see [values.yaml](values.yaml)
+      buffer:
+        # -- flush interval
+        flushInterval: 1s
+        # -- extra configuration put verbatim in the buffer definition
+        extraCfg: ''
+
+    # -- forward plugin configuration
+    # @default -- see [values.yaml](values.yaml)
+    forward:
+      # -- enable forward plugin definition
+      enabled: false
+      # -- fluentd plugin type
+      type: forward
+      # -- match tags
+      tags: [ '**' ]
+      # -- target servers where to forward logs to
+      # see [values.yaml](values.yaml)
+      servers: []
+      #  - host:
+      #    port:
+      # -- forward plugin buffer configuration
+      # @default -- see [values.yaml](values.yaml)
+      buffer:
+        # -- flush interval
+        flushInterval: 1s
+        # -- extra configuration put verbatim in the buffer definition
+        extraCfg: ''
+
+      # -- extra configuration put verbatim in the forward plugin definition
+      extraCfg: ''
+
+    copy:
+      # -- enable copy output plugin
+      enabled: false
+      # -- fluentd plugin type
+      type: copy
+      # -- match tags
+      tags: [ '**' ]
+      # -- list of output stores
+      # see <https://docs.fluentd.org/output/copy>
+      stores: []
+
+  # -- CPU and memory limits
+  resources: {}
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    #    limits:
+    #      cpu: 2000m
+    #      memory: 2Gi
+    #    requests:
+    #      cpu: 500m
+  #      memory: 1Gi
+
+# -- Jolokia Agent configuration
+# @default -- see [values.yaml](values.yaml)
+jolokiaAgent:
+  # enabled / disabled
+  enabled: false
+  copyContainer:
+    # -- override this if other than default is necessary
+    image:
+    # -- override this if other than default is necessary
+    imageTag:
+    # -- pull policy IfNotPresent, Always, Never
+    pullPolicy: IfNotPresent
+    # -- CPU and memory limits
+    resources: {}
+      # We usually recommend not to specify default resources and to leave this as a conscious
+      # choice for the user. This also increases chances charts run on environments with little
+      # resources, such as Minikube. If you do want to specify resources, uncomment the following
+      # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+      #    limits:
+      #      cpu: 2000m
+      #      memory: 2Gi
+      #    requests:
+      #      cpu: 500m
+    #      memory: 1Gi
+
+  # -- if defined this is copied as the configuration file for the jolokia agent, overriding the default
+  config:
+  # -- name of the jolokia file configuration
+  configFile: zen-jolokia.yaml
+  # -- port where the Jolokia Agent should listen
+  port: 7777
+
+  # -- Additional configuration for Jolokia agent put verbatim into `jolokia-agent.properties`
+  extraConfig:
+
+  # -- Additional extra environment variables define for the Jolokia agent
+  extraEnv:
+
+logback:
+
+  # -- values from which `logback.xml` is generated
+  # @default -- see [values.yaml](values.yaml)
+  xml:
+    appenders:
+      CONSOLE:
+        name: CONSOLE
+        class: ch.qos.logback.core.ConsoleAppender
+        encoder:
+          pattern: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+      FILE:
+        name: FILE
+        class: ch.qos.logback.core.rolling.RollingFileAppender
+        file: logs/loy-app.json.log
+        rollingPolicy:
+          class: ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy
+          fileNamePattern: logs/loy-app.json.%d{yyyy-MM-dd}.%i.log
+          maxHistory: 7
+          maxFileSize: 50MB
+          totalSizeCap: 1GB
+        encoder:
+          class: ch.qos.logback.core.encoder.LayoutWrappingEncoder
+          layout:
+            class: ch.qos.logback.contrib.json.classic.JsonLayout
+            timestampFormatTimezoneId: Etc/UTC
+            appendLineSeparator: true
+            jsonFormatter:
+              class: ch.qos.logback.contrib.jackson.JacksonJsonFormatter
+              prettyPrint: false
+
+    loggers:
+      com:
+        level: WARN
+      org:
+        level: WARN
+      org.springframework:
+        level: INFO
+      org.springframework.beans.factory.support.DefaultListableBeanFactory:
+        level: INFO
+      com.zentity:
+        level: DEBUG
+      com.zentity.gw.jpa.SQL:
+        level: INFO
+
+    root:
+      level: INFO
+      appender-refs:
+        - CONSOLE
+        - FILE
+
+  # -- optional XML content of Logback configuration.
+  # this setting has precedence over xml:
+  # it can be set by helm command line parameter:
+  # ```helm --set-file 'logback.xmlContent=PATH_TO_CUSTOM_LOGBACK_XML'```
+  xmlContent:

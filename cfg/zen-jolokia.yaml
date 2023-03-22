@@ -1,0 +1,281 @@
+collect:
+  - mbean: 'java.lang:type=Runtime'
+    attributes:
+      - attr: Uptime
+        field: uptime
+
+  - mbean: 'java.lang:type=Compilation'
+    attributes:
+      - attr: TotalCompilationTime
+        field: compilation_total_time
+
+  - mbean: 'java.lang:type=ClassLoading'
+    attributes:
+      - attr: TotalLoadedClassCount
+        field: class_loading_loaded_total
+      - attr: LoadedClassCount
+        field: class_loading_loaded
+      - attr: UnloadedClassCount
+        field: class_loading_unloaded
+
+
+#### THREADS ####
+  - mbean: 'java.lang:type=Threading'
+    attributes:
+      - attr: CurrentThreadCpuTime
+        field: thread_current_cpu_time
+      - attr: ThreadCount
+        field: thread_count
+      - attr: PeakThreadCount
+        field: thread_peak_count
+      - attr: DaemonThreadCount
+        field: thread_daemon_count
+      - attr: TotalStartedThreadCount
+        field: thread_total_count
+
+
+#### CPU ####
+  - mbean: 'java.lang:type=OperatingSystem'
+    attributes:
+      - attr: OpenFileDescriptorCount
+        field: os_file_descriptor_open
+      - attr: MaxFileDescriptorCount
+        field: os_file_descriptor_max
+      - attr: CommittedVirtualMemorySize
+        field: os_memory_virtual_commited
+      - attr: TotalPhysicalMemorySize
+        field: os_memory_physical_total
+      - attr: FreePhysicalMemorySize
+        field: os_memory_physical_free
+      - attr: TotalSwapSpaceSize
+        field: os_swap_total
+      - attr: FreeSwapSpaceSize
+        field: os_swap_free
+      - attr: AvailableProcessors
+        field: os_cpu_available_processors
+      - attr: ProcessCpuLoad
+        field: os_cpu_process_load
+      - attr: SystemCpuLoad
+        field: os_cpu_system_load
+      - attr: SystemLoadAverage
+        field: os_cpu_system_load_avg
+      - attr: ProcessCpuTime
+        field: os_cpu_process_time
+
+
+#### NIO ####
+  - mbean: 'java.nio:name=direct,type=BufferPool'
+    attributes:
+      - attr: Count
+        field: nio_buffer_pool_direct_count
+      - attr: MemoryUsed
+        field: nio_buffer_pool_direct_memory_used
+      - attr: TotalCapacity
+        field: nio_buffer_pool_direct_total_capacity
+
+  - mbean: 'java.nio:name=mapped,type=BufferPool'
+    attributes:
+      - attr: Count
+        field: nio_buffer_pool_mapped_count
+      - attr: MemoryUsed
+        field: nio_buffer_pool_mapped_memory_used
+      - attr: TotalCapacity
+        field: nio_buffer_pool_mapped_total_capacity
+
+
+#### MEMORY ####
+  - mbean: 'java.lang:type=Memory'
+    attributes:
+      - attr: HeapMemoryUsage
+        field: memory_heap_usage
+      - attr: NonHeapMemoryUsage
+        field: memory_non_heap_usage
+      - attr: ObjectPendingFinalizationCount
+        field: memory_object_pending_finalization
+
+  - mbean: 'java.lang:name=CodeHeap ''non-nmethods'',type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_code_heap_non_nmethods_usage
+      - attr: PeakUsage
+        field: memory_pool_code_heap_non_nmethods_peak_usage
+      - attr: UsageThreshold
+        field: memory_pool_code_heap_non_nmethods_usage_threshold
+      - attr: UsageThresholdCount
+        field: memory_pool_code_heap_non_nmethods_usage_threshold_count
+      - attr: UsageThresholdExceeded
+        field: memory_pool_code_heap_non_nmethods_usage_threshold_exceeded
+      - attr: UsageThresholdSupported
+        field: memory_pool_code_heap_non_nmethods_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_code_heap_non_nmethods_collection_usage
+
+  - mbean: 'java.lang:name=CodeHeap ''non-profiled nmethods'',type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_code_heap_non_profiled_nmethods_usage
+      - attr: PeakUsage
+        field: memory_pool_code_heap_non_profiled_nmethods_peak_usage
+      - attr: UsageThreshold
+        field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold
+      - attr: UsageThresholdCount
+        field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold_count
+      - attr: UsageThresholdExceeded
+        field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold_exceeded
+      - attr: UsageThresholdSupported
+        field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_code_heap_non_profiled_nmethods_collection_usage
+
+  - mbean: 'java.lang:name=CodeHeap ''profiled nmethods'',type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_code_heap_profiled_nmethods_usage
+      - attr: PeakUsage
+        field: memory_pool_code_heap_profiled_nmethods_peak_usage
+      - attr: UsageThreshold
+        field: memory_pool_code_heap_profiled_nmethods_usage_threshold
+      - attr: UsageThresholdCount
+        field: memory_pool_code_heap_profiled_nmethods_usage_threshold_count
+      - attr: UsageThresholdExceeded
+        field: memory_pool_code_heap_profiled_nmethods_usage_threshold_exceeded
+      - attr: UsageThresholdSupported
+        field: memory_pool_code_heap_profiled_nmethods_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_code_heap_profiled_nmethods_collection_usage
+
+  - mbean: 'java.lang:name=Compressed Class Space,type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_compressed_class_space_usage
+      - attr: PeakUsage
+        field: memory_pool_compressed_class_space_peak_usage
+      - attr: UsageThreshold
+        field: memory_pool_compressed_class_space_usage_threshold
+      - attr: UsageThresholdCount
+        field: memory_pool_compressed_class_space_usage_threshold_count
+      - attr: UsageThresholdExceeded
+        field: memory_pool_compressed_class_space_usage_threshold_exceeded
+      - attr: UsageThresholdSupported
+        field: memory_pool_compressed_class_space_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_compressed_class_space_collection_usage
+
+  - mbean: 'java.lang:name=Metaspace,type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_metaspace_usage
+      - attr: PeakUsage
+        field: memory_pool_metaspace_peak_usage
+      - attr: UsageThreshold
+        field: memory_pool_metaspace_usage_threshold
+      - attr: UsageThresholdCount
+        field: memory_pool_metaspace_usage_threshold_count
+      - attr: UsageThresholdExceeded
+        field: memory_pool_metaspace_usage_threshold_exceeded
+      - attr: UsageThresholdSupported
+        field: memory_pool_metaspace_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_metaspace_collection_usage
+
+  - mbean: 'java.lang:name=Eden Space,type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_metaspace_usage
+      - attr: PeakUsage
+        field: memory_pool_metaspace_peak_usage
+      - attr: UsageThresholdSupported
+        field: memory_pool_metaspace_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_metaspace_collection_usage
+
+  - mbean: 'java.lang:name=Survivor Space,type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_survivor_space_usage
+      - attr: PeakUsage
+        field: memory_pool_survivor_space_peak_usage
+      - attr: UsageThresholdSupported
+        field: memory_pool_survivor_space_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_survivor_space_collection_usage
+
+  - mbean: 'java.lang:name=Tenured Gen,type=MemoryPool'
+    attributes:
+      - attr: Usage
+        field: memory_pool_tenured_gen_usage
+      - attr: PeakUsage
+        field: memory_pool_tenured_gen_peak_usage
+      - attr: UsageThreshold
+        field: memory_pool_tenured_gen_usage_threshold
+      - attr: UsageThresholdCount
+        field: memory_pool_tenured_gen_usage_threshold_count
+      - attr: UsageThresholdExceeded
+        field: memory_pool_tenured_gen_usage_threshold_exceeded
+      - attr: UsageThresholdSupported
+        field: memory_pool_tenured_gen_usage_threshold_supported
+      - attr: CollectionUsage
+        field: memory_pool_tenured_gen_collection_usage
+
+
+#### REQUESTS ####
+  # - mbean: 'Catalina:context=/,host=localhost,type=Manager'
+  #   attributes:
+  #     - attr: processingTime
+  #       field: catalina_manager_processing_time
+  #     - attr: activeSessions
+  #       field: catalina_manager_session_active
+  #     - attr: maxActiveSessions
+  #       field: catalina_manager_session_max_active
+  #     - attr: duplicates
+  #       field: catalina_manager_duplicates
+  #     - attr: expiredSessions
+  #       field: catalina_manager_session_expired
+  #     - attr: sessionCounter
+  #       field: catalina_manager_session_counter
+  #     - attr: sessionAverageAliveTime
+  #       field: catalina_manager_session_average_alive_time
+  #     - attr: sessionMaxAliveTime
+  #       field: catalina_manager_session_max_alive_time
+  #     - attr: sessionCreateRate
+  #       field: catalina_manager_session_create_rate
+  #     - attr: sessionExpireRate
+  #       field: catalina_manager_expire_rate
+  #     - attr: distributable
+  #       field: catalina_manager_distributable
+
+  - mbean: 'Catalina:name="http-nio2-8080",type=GlobalRequestProcessor'
+    attributes:
+      - attr: processingTime
+        field: global_request_processor_processing_time
+      - attr: requestCount
+        field: global_request_processor_request_count
+      - attr: errorCount
+        field: global_request_processor_error_count
+      - attr: bytesReceived
+        field: global_request_processor_bytes_received
+      - attr: bytesSent
+        field: global_request_processor_bytes_sent
+      - attr: maxTime
+        field: global_request_processor_max_time
+
+
+#### WEB RESOURCES ####
+  - mbean: 'Catalina:context=/,host=localhost,name=Cache,type=WebResourceRoot'
+    attributes:
+      - attr: size
+        field: catalina_web_resource_root_cache_size
+      - attr: maxSize
+        field: catalina_web_resource_root_cache_max_size
+
+  # - mbean: 'Catalina:context=/,host=localhost,type=WebResourceRoot'
+  #   attributes:
+  #     - attr: size
+  #       field: catalina_web_resource_root_size
+  #     - attr: maxSize
+  #       field: catalina_web_resource_root_max_size
+
+  - mbean: 'com.zentity.gw.http:type=WebClientMetrics'
+    attributes:
+      - attr: ConnectionPoolMetrics
+        field: connection_pool_metrics

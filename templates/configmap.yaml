@@ -1,0 +1,495 @@
+# Source: vfo-zds-loy/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vfo-zds-loy
+  labels:
+    helm.sh/chart: vfo-zds-loy-1.1.0
+    app.kubernetes.io/name: vfo-zds-loy
+    app.kubernetes.io/instance: vfo-zds-loy
+    app.kubernetes.io/version: "1.1.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+
+
+
+  elasticapm.properties: |
+    service_name=zds-loy
+    environment=sit1
+    log_level=INFO
+    log_file=/usr/local/tomcat/logs/apm-agent.log
+    log_file_size=50mb
+    log_format_file=PLAIN_TEXT
+    server_url=http://10.14.144.73:8200
+    verify_server_cert=true
+    application_packages=com.zentity
+    use_elastic_traceparent_header=true
+    enable_log_correlation=true
+    log_ecs_reformatting=SHADE
+
+
+
+  fluent.conf: |
+    <source>
+      @type tail
+      format apache2
+      tag "#{ENV['FLUENTD_TAG_PREFIX']}#{ENV['FLUENTD_TAG_COMPONENT_NAME']}.accesslogs"
+      path /usr/local/tomcat/logs/localhost_access_log.*.txt
+      pos_file /usr/local/tomcat/logs/localhost_access_log.pos
+      follow_inodes true
+      read_from_head true
+    </source>
+    <source>
+      @type tail
+      format json # one JSON per line
+      tag "#{ENV['FLUENTD_TAG_PREFIX']}#{ENV['FLUENTD_TAG_COMPONENT_NAME']}.applogs"
+      path /usr/local/tomcat/logs/loy-app.json.log
+      pos_file /usr/local/tomcat/logs/loy-app.json.log.pos
+      follow_inodes true
+      read_from_head true
+    </source>
+    <source>
+      @type zen_jolokia
+      tag "#{ENV['FLUENTD_TAG_PREFIX']}#{ENV['FLUENTD_TAG_COMPONENT_NAME']}.jmx"
+      url "http://#{ENV['KUBERNETES_POD_IP']}:7777/jolokia"
+      interval 5
+      jolokia_config /fluentd/etc/zen-jolokia.yaml
+    </source>
+    <filter *.applogs>
+      @type zen_modifier
+      insert {
+        "X-Request-ID": "mdc.requestId",
+        "X-Correlation-ID": "mdc.traceId",
+        "X-Application-ID": "mdc.callerApplicationId",
+        "SGW_ID": "mdc.userId"
+      }
+    </filter>
+
+    <filter **>
+      @type record_modifier
+      <record>
+        "kubernetes.container_image" "#{ENV['KUBERNETES_CONTAINER_IMAGE']}"
+        "kubernetes.container_name" "#{ENV['KUBERNETES_CONTAINER_NAME']}"
+        "kubernetes.helm_chart.name" "#{ENV['KUBERNETES_HELM_CHART_NAME']}"
+        "kubernetes.helm_chart.version" "#{ENV['KUBERNETES_HELM_CHART_VERSION']}"
+        "kubernetes.node_ip" "#{ENV['KUBERNETES_NODE_IP']}"
+        "kubernetes.namespace_name" "#{ENV['KUBERNETES_NAMESPACE']}"
+        "kubernetes.pod_id" "#{ENV['KUBERNETES_POD_ID']}"
+        "kubernetes.pod_ip" "#{ENV['KUBERNETES_POD_IP']}"
+        "kubernetes.pod_name" "#{ENV['KUBERNETES_POD_NAME']}"
+        "kubernetes.pod_service_account" "#{ENV['KUBERNETES_POD_SERVICE_ACCOUNT']}"
+        "kubernetes.pod_uid" "#{ENV['KUBERNETES_POD_UID']}"
+      </record>
+    </filter>
+
+
+    <match **>
+      @type elasticsearch
+      scheme http
+      host 10.14.144.73
+      port 9200
+      ssl_verify true
+      user fluentd_system
+      password "#{ENV['FLUENTD_ELASTICSEARCH_PASSWORD']}"
+      reconnect_on_error true
+      log_es_400_reason true
+      <buffer>
+        flush_interval 1s
+      </buffer>
+      index_name fluentd.${tag}
+      logstash_format true
+      logstash_prefix ${tag}
+      suppress_type_name true
+    </match>
+
+
+
+
+
+
+  jolokia-agent.properties: |
+    port=7777
+    host=0.0.0.0
+
+
+
+  logback.xml: |-
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration scan="false">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+                <layout class="ch.qos.logback.contrib.json.classic.JsonLayout">
+                    <appendLineSeparator>true</appendLineSeparator>
+                    <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+                        <prettyPrint>false</prettyPrint>
+                    </jsonFormatter>
+                    <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
+                </layout>
+            </encoder>
+            <file>logs/loy-app.json.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/loy-app.json.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                <maxFileSize>50MB</maxFileSize>
+                <maxHistory>7</maxHistory>
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+        <logger name="com">
+            <level value="WARN"/>
+        </logger>
+        <logger name="com.zentity">
+            <level value="DEBUG"/>
+        </logger>
+        <logger name="com.zentity.gw.jpa.SQL">
+            <level value="INFO"/>
+        </logger>
+        <logger name="org">
+            <level value="WARN"/>
+        </logger>
+        <logger name="org.springframework">
+            <level value="INFO"/>
+        </logger>
+        <logger name="org.springframework.beans.factory.support.DefaultListableBeanFactory">
+            <level value="INFO"/>
+        </logger>
+        <root>
+            <level value="INFO"/>
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
+        </root>
+    </configuration>
+
+
+  zen-jolokia.yaml: |-
+    collect:
+      - mbean: 'java.lang:type=Runtime'
+        attributes:
+          - attr: Uptime
+            field: uptime
+
+      - mbean: 'java.lang:type=Compilation'
+        attributes:
+          - attr: TotalCompilationTime
+            field: compilation_total_time
+
+      - mbean: 'java.lang:type=ClassLoading'
+        attributes:
+          - attr: TotalLoadedClassCount
+            field: class_loading_loaded_total
+          - attr: LoadedClassCount
+            field: class_loading_loaded
+          - attr: UnloadedClassCount
+            field: class_loading_unloaded
+
+
+      #### THREADS ####
+      - mbean: 'java.lang:type=Threading'
+        attributes:
+          - attr: CurrentThreadCpuTime
+            field: thread_current_cpu_time
+          - attr: ThreadCount
+            field: thread_count
+          - attr: PeakThreadCount
+            field: thread_peak_count
+          - attr: DaemonThreadCount
+            field: thread_daemon_count
+          - attr: TotalStartedThreadCount
+            field: thread_total_count
+
+
+      #### CPU ####
+      - mbean: 'java.lang:type=OperatingSystem'
+        attributes:
+          - attr: OpenFileDescriptorCount
+            field: os_file_descriptor_open
+          - attr: MaxFileDescriptorCount
+            field: os_file_descriptor_max
+          - attr: CommittedVirtualMemorySize
+            field: os_memory_virtual_commited
+          - attr: TotalPhysicalMemorySize
+            field: os_memory_physical_total
+          - attr: FreePhysicalMemorySize
+            field: os_memory_physical_free
+          - attr: TotalSwapSpaceSize
+            field: os_swap_total
+          - attr: FreeSwapSpaceSize
+            field: os_swap_free
+          - attr: AvailableProcessors
+            field: os_cpu_available_processors
+          - attr: ProcessCpuLoad
+            field: os_cpu_process_load
+          - attr: SystemCpuLoad
+            field: os_cpu_system_load
+          - attr: SystemLoadAverage
+            field: os_cpu_system_load_avg
+          - attr: ProcessCpuTime
+            field: os_cpu_process_time
+
+
+      #### NIO ####
+      - mbean: 'java.nio:name=direct,type=BufferPool'
+        attributes:
+          - attr: Count
+            field: nio_buffer_pool_direct_count
+          - attr: MemoryUsed
+            field: nio_buffer_pool_direct_memory_used
+          - attr: TotalCapacity
+            field: nio_buffer_pool_direct_total_capacity
+
+      - mbean: 'java.nio:name=mapped,type=BufferPool'
+        attributes:
+          - attr: Count
+            field: nio_buffer_pool_mapped_count
+          - attr: MemoryUsed
+            field: nio_buffer_pool_mapped_memory_used
+          - attr: TotalCapacity
+            field: nio_buffer_pool_mapped_total_capacity
+
+
+      #### MEMORY ####
+      - mbean: 'java.lang:type=Memory'
+        attributes:
+          - attr: HeapMemoryUsage
+            field: memory_heap_usage
+          - attr: NonHeapMemoryUsage
+            field: memory_non_heap_usage
+          - attr: ObjectPendingFinalizationCount
+            field: memory_object_pending_finalization
+
+      - mbean: 'java.lang:name=CodeHeap ''non-nmethods'',type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_code_heap_non_nmethods_usage
+          - attr: PeakUsage
+            field: memory_pool_code_heap_non_nmethods_peak_usage
+          - attr: UsageThreshold
+            field: memory_pool_code_heap_non_nmethods_usage_threshold
+          - attr: UsageThresholdCount
+            field: memory_pool_code_heap_non_nmethods_usage_threshold_count
+          - attr: UsageThresholdExceeded
+            field: memory_pool_code_heap_non_nmethods_usage_threshold_exceeded
+          - attr: UsageThresholdSupported
+            field: memory_pool_code_heap_non_nmethods_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_code_heap_non_nmethods_collection_usage
+
+      - mbean: 'java.lang:name=CodeHeap ''non-profiled nmethods'',type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_code_heap_non_profiled_nmethods_usage
+          - attr: PeakUsage
+            field: memory_pool_code_heap_non_profiled_nmethods_peak_usage
+          - attr: UsageThreshold
+            field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold
+          - attr: UsageThresholdCount
+            field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold_count
+          - attr: UsageThresholdExceeded
+            field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold_exceeded
+          - attr: UsageThresholdSupported
+            field: memory_pool_code_heap_non_profiled_nmethods_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_code_heap_non_profiled_nmethods_collection_usage
+
+      - mbean: 'java.lang:name=CodeHeap ''profiled nmethods'',type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_code_heap_profiled_nmethods_usage
+          - attr: PeakUsage
+            field: memory_pool_code_heap_profiled_nmethods_peak_usage
+          - attr: UsageThreshold
+            field: memory_pool_code_heap_profiled_nmethods_usage_threshold
+          - attr: UsageThresholdCount
+            field: memory_pool_code_heap_profiled_nmethods_usage_threshold_count
+          - attr: UsageThresholdExceeded
+            field: memory_pool_code_heap_profiled_nmethods_usage_threshold_exceeded
+          - attr: UsageThresholdSupported
+            field: memory_pool_code_heap_profiled_nmethods_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_code_heap_profiled_nmethods_collection_usage
+
+      - mbean: 'java.lang:name=Compressed Class Space,type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_compressed_class_space_usage
+          - attr: PeakUsage
+            field: memory_pool_compressed_class_space_peak_usage
+          - attr: UsageThreshold
+            field: memory_pool_compressed_class_space_usage_threshold
+          - attr: UsageThresholdCount
+            field: memory_pool_compressed_class_space_usage_threshold_count
+          - attr: UsageThresholdExceeded
+            field: memory_pool_compressed_class_space_usage_threshold_exceeded
+          - attr: UsageThresholdSupported
+            field: memory_pool_compressed_class_space_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_compressed_class_space_collection_usage
+
+      - mbean: 'java.lang:name=Metaspace,type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_metaspace_usage
+          - attr: PeakUsage
+            field: memory_pool_metaspace_peak_usage
+          - attr: UsageThreshold
+            field: memory_pool_metaspace_usage_threshold
+          - attr: UsageThresholdCount
+            field: memory_pool_metaspace_usage_threshold_count
+          - attr: UsageThresholdExceeded
+            field: memory_pool_metaspace_usage_threshold_exceeded
+          - attr: UsageThresholdSupported
+            field: memory_pool_metaspace_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_metaspace_collection_usage
+
+      - mbean: 'java.lang:name=Eden Space,type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_metaspace_usage
+          - attr: PeakUsage
+            field: memory_pool_metaspace_peak_usage
+          - attr: UsageThresholdSupported
+            field: memory_pool_metaspace_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_metaspace_collection_usage
+
+      - mbean: 'java.lang:name=Survivor Space,type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_survivor_space_usage
+          - attr: PeakUsage
+            field: memory_pool_survivor_space_peak_usage
+          - attr: UsageThresholdSupported
+            field: memory_pool_survivor_space_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_survivor_space_collection_usage
+
+      - mbean: 'java.lang:name=Tenured Gen,type=MemoryPool'
+        attributes:
+          - attr: Usage
+            field: memory_pool_tenured_gen_usage
+          - attr: PeakUsage
+            field: memory_pool_tenured_gen_peak_usage
+          - attr: UsageThreshold
+            field: memory_pool_tenured_gen_usage_threshold
+          - attr: UsageThresholdCount
+            field: memory_pool_tenured_gen_usage_threshold_count
+          - attr: UsageThresholdExceeded
+            field: memory_pool_tenured_gen_usage_threshold_exceeded
+          - attr: UsageThresholdSupported
+            field: memory_pool_tenured_gen_usage_threshold_supported
+          - attr: CollectionUsage
+            field: memory_pool_tenured_gen_collection_usage
+
+
+      #### REQUESTS ####
+      # - mbean: 'Catalina:context=/,host=localhost,type=Manager'
+      #   attributes:
+      #     - attr: processingTime
+      #       field: catalina_manager_processing_time
+      #     - attr: activeSessions
+      #       field: catalina_manager_session_active
+      #     - attr: maxActiveSessions
+      #       field: catalina_manager_session_max_active
+      #     - attr: duplicates
+      #       field: catalina_manager_duplicates
+      #     - attr: expiredSessions
+      #       field: catalina_manager_session_expired
+      #     - attr: sessionCounter
+      #       field: catalina_manager_session_counter
+      #     - attr: sessionAverageAliveTime
+      #       field: catalina_manager_session_average_alive_time
+      #     - attr: sessionMaxAliveTime
+      #       field: catalina_manager_session_max_alive_time
+      #     - attr: sessionCreateRate
+      #       field: catalina_manager_session_create_rate
+      #     - attr: sessionExpireRate
+      #       field: catalina_manager_expire_rate
+      #     - attr: distributable
+      #       field: catalina_manager_distributable
+
+      - mbean: 'Catalina:name="http-nio2-8080",type=GlobalRequestProcessor'
+        attributes:
+          - attr: processingTime
+            field: global_request_processor_processing_time
+          - attr: requestCount
+            field: global_request_processor_request_count
+          - attr: errorCount
+            field: global_request_processor_error_count
+          - attr: bytesReceived
+            field: global_request_processor_bytes_received
+          - attr: bytesSent
+            field: global_request_processor_bytes_sent
+          - attr: maxTime
+            field: global_request_processor_max_time
+
+
+      #### WEB RESOURCES ####
+      - mbean: 'Catalina:context=/,host=localhost,name=Cache,type=WebResourceRoot'
+        attributes:
+          - attr: size
+            field: catalina_web_resource_root_cache_size
+          - attr: maxSize
+            field: catalina_web_resource_root_cache_max_size
+
+      # - mbean: 'Catalina:context=/,host=localhost,type=WebResourceRoot'
+      #   attributes:
+      #     - attr: size
+      #       field: catalina_web_resource_root_size
+      #     - attr: maxSize
+      #       field: catalina_web_resource_root_max_size
+
+      - mbean: 'com.zentity.gw.http:type=WebClientMetrics'
+        attributes:
+          - attr: ConnectionPoolMetrics
+            field: connection_pool_metrics
+
+
+  loy.properties: |
+    jpa.connection.url=jdbc:postgresql://10.14.144.223:5000/vfo
+    jpa.username=loy
+    jpa.schema=loy
+    jpa.driver=org.postgresql.Driver
+    jpa.hibernate.dialect=com.zentity.gw.jpa.ZenPostgreSQL95Dialect
+    jpa.connection.active.max=50
+    swagger.enabled=true
+    swagger.user=api
+
+    logger.configuration.url=#NULL
+    logger.traceId.generateIfMissing=true
+    zipkin.api.url=#NULL
+
+    auth.client.auth.server.url=http://vfo-zds-sgw-isgw.zentity-sgw.svc.cluster.local
+    auth.client.auth.server.trustStore.url=file:/etc/zds/secrets/sgw-trustore
+    auth.client.auth.server.trustStore.type=JKS
+    auth.client.jwks.trustStore.url=classpath:/com/zentity/gw/vfo/shared/truststore-jwks.devel.jks
+    auth.client.jwks.trustStore.type=JKS
+
+    auth.client.jwt.clientId=LOY_ZDS
+    auth.client.jwt.issuer=https://vfo-zds-sgw-isgw-ssl-zentity-sgw.apps.rhocp.non-prod-cloud1.itcloud.local.vodafone.om
+    auth.client.jwks.uri=http://vfo-zds-sgw-isgw.zentity-sgw.svc.cluster.local/api/public/jwks/v1
+    auth.client.jwt.token.uri=http://vfo-zds-sgw-isgw.zentity-sgw.svc.cluster.local/api/public/access-token/v1
+
+    auth.client.credentials.privateKeyStore.url=file:/etc/zds/secrets/sgw-private-keystore
+    auth.client.credentials.privateKeyStore.type=JKS
+    auth.client.credentials.privateKeyStore.alias=testing_loy_zds
+    shared.api.gw.baseUrl=https://api-router-api-gateway-sit.apps.rhocp.non-prod-cloud1.itcloud.local.vodafone.om/apiman-gateway/oman
+    shared.vfoApplicationId=CHANNELS_ZDS
+    loyalty.auth.apigw.truststore=file:/etc/zds/secrets/apigw-truststore
+
+    zds.baseUrl=http://vfo-zds-loy.zentity-loy-zds.svc.cluster.local
+
+    core.url.base.full=https://loy.apps.rhocp.non-prod-cloud1.itcloud.local.vodafone.om/
+    shared.httpIdHeaders.mandatory.exclusion.pattern=^(?:(?:/\\w+)?/api/(?:stats|debug)|/core/api/\\w+/anonymous/ping/|/media/api/public/anonymous/files/\\w+)
+
+    loyalty.kafka.bootstrap.servers=kafka01-test.ix.itcloud.vodafone.om:3413,kafka02-test.ix.itcloud.vodafone.om:3413,kafka03-test.ix.itcloud.vodafone.om:3413
+    loyalty.kafka.client.id=zentity-sit1
+    loyalty.kafka.ssl.keystore.location=file:/etc/zds/secrets/kafka-keystore
+    loyalty.kafka.ssl.truststore.location=file:/etc/zds/secrets/kafka-truststore
+    loyalty.kafka.topic.gamification=
+
+    loyalty.kafka.topic.gamification=sit-ze-gamification
